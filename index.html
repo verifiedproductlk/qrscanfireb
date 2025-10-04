@@ -9,31 +9,35 @@
 body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
 header { text-align: center; margin-bottom: 20px; }
 header h1 { margin: 0; font-size: 26px; color: #333; }
+
 .card-small { display: inline-block; background:white; padding:15px 25px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; text-align:center; }
 .card-small p { margin:5px 0; font-size:16px; color:#555; }
-.shipped-inputs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
-.shipped-inputs label { flex:1; background:white; padding:10px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; }
-.shipped-inputs input { width:60px; padding:5px; border-radius:5px; border:1px solid #ccc; text-align:right; }
+
 button { padding:10px 20px; border:none; border-radius:5px; background:#27ae60; color:white; cursor:pointer; margin-bottom:20px; }
+
 .chart-container { background:white; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; }
+
+.province-container { margin-bottom:10px; }
+.province-header { cursor:pointer; padding:10px; background:#eee; border-radius:6px; margin-bottom:2px; display:flex; justify-content:space-between; align-items:center; }
+.province-total { font-weight:bold; padding:5px 10px; margin-bottom:5px; color:#333; }
+.districts { display:none; margin-left:15px; padding:5px; border-left:3px solid #ccc; }
+.districts label { display:flex; justify-content:space-between; margin-bottom:3px; }
 h3 { margin-top:0; }
 </style>
 </head>
 <body>
+
 <header>
 <h1>📊 Sri Lanka Sales Dashboard</h1>
 </header>
 
-<!-- Small summary card -->
 <div class="card-small">
   <p id="summaryText">Total Shipped: 0 | Total Sold: 0 | Sales %: 0 | Remaining: 0</p>
 </div>
 
-<!-- Shipped Inputs -->
-<div class="shipped-inputs" id="shippedInputs"></div>
+<div id="provinceInputs"></div>
 <button onclick="updateSales()">Save Shipped Numbers</button>
 
-<!-- Horizontal Bar Chart -->
 <div class="chart-container">
 <h3>Sold vs Shipped per Province</h3>
 <canvas id="barChart"></canvas>
@@ -41,102 +45,151 @@ h3 { margin-top:0; }
 
 <script>
 const provinces = ["Western","Central","Southern","Northern","Eastern","North Western","North Central","Uva","Sabaragamuwa"];
-const districtToProvince = {
-  "Colombo District":"Western","Gampaha District":"Western","Kalutara District":"Western",
-  "Kandy District":"Central","Matale District":"Central","Nuwara Eliya District":"Central",
-  "Galle District":"Southern","Matara District":"Southern","Hambantota District":"Southern",
-  "Jaffna District":"Northern","Kilinochchi District":"Northern","Mannar District":"Northern","Mullaitivu District":"Northern","Vavuniya District":"Northern",
-  "Batticaloa District":"Eastern","Ampara District":"Eastern","Trincomalee District":"Eastern",
-  "Kurunegala District":"North Western","Puttalam District":"North Western",
-  "Anuradhapura District":"North Central","Polonnaruwa District":"North Central",
-  "Badulla District":"Uva","Monaragala District":"Uva",
-  "Ratnapura District":"Sabaragamuwa","Kegalle District":"Sabaragamuwa"
+const districts = {
+  "Western":["Colombo District","Gampaha District","Kalutara District"],
+  "Central":["Kandy District","Matale District","Nuwara Eliya District"],
+  "Southern":["Galle District","Matara District","Hambantota District"],
+  "Northern":["Jaffna District","Kilinochchi District","Mannar District","Mullaitivu District","Vavuniya District"],
+  "Eastern":["Batticaloa District","Ampara District","Trincomalee District"],
+  "North Western":["Kurunegala District","Puttalam District"],
+  "North Central":["Anuradhapura District","Polonnaruwa District"],
+  "Uva":["Badulla District","Monaragala District"],
+  "Sabaragamuwa":["Ratnapura District","Kegalle District"]
 };
 
 let shipped = {};
 let sold = {};
 let scanData = [];
+let barChart = null;
 
-// Generate shipped input fields
-const shippedDiv = document.getElementById('shippedInputs');
+const provinceDiv = document.getElementById('provinceInputs');
+
+// Generate province + district input fields with province total
 provinces.forEach(p=>{
-  const label = document.createElement('label');
-  label.innerHTML = `${p}: <input type="number" min="0" value="0" id="ship_${p}">`;
-  shippedDiv.appendChild(label);
+  const container = document.createElement('div');
+  container.className = 'province-container';
+
+  const header = document.createElement('div');
+  header.className = 'province-header';
+  header.innerHTML = `<span>${p}</span> <span>▼</span>`;
+  container.appendChild(header);
+
+  const totalDiv = document.createElement('div');
+  totalDiv.className = 'province-total';
+  totalDiv.id = `total_${p}`;
+  totalDiv.innerText = 'Total Shipped: 0';
+  container.appendChild(totalDiv);
+
+  const districtDiv = document.createElement('div');
+  districtDiv.className = 'districts';
+
+  districts[p].forEach(d=>{
+    const label = document.createElement('label');
+    label.innerHTML = `${d}: <input type="number" min="0" value="0" id="ship_${d}">`;
+    districtDiv.appendChild(label);
+
+    // Event to update province total dynamically
+    const input = label.querySelector('input');
+    input.addEventListener('input', ()=>{
+      updateProvinceTotal(p);
+      updateSales();
+    });
+  });
+
+  container.appendChild(districtDiv);
+  provinceDiv.appendChild(container);
+
+  // Collapse/expand logic
+  header.addEventListener('click', ()=>{
+    document.querySelectorAll('.districts').forEach(dd=>dd.style.display='none');
+    districtDiv.style.display = 'block';
+  });
 });
 
-// Fetch sold data and saved shipped numbers
+function updateProvinceTotal(province){
+  const total = districts[province].reduce((sum,d)=>{
+    const val = parseInt(document.getElementById(`ship_${d}`).value)||0;
+    return sum+val;
+  },0);
+  document.getElementById(`total_${province}`).innerText = `Total Shipped: ${total}`;
+}
+
 async function fetchData(){
-  try {
-    // Fetch scanned/sold data
+  try{
+    // Fetch sold numbers
     const res = await fetch("https://qr-tracker-worker.businesstroffice.workers.dev/locations");
     scanData = await res.json();
-    sold = Object.fromEntries(provinces.map(p=>[p,0]));
+    sold = {};
+    provinces.forEach(p=>{ districts[p].forEach(d=>sold[d]=0); });
     scanData.forEach(item=>{
-      const prov = districtToProvince[item.district];
-      if(prov) sold[prov]++;
+      if(sold[item.district]!==undefined) sold[item.district]++;
     });
 
-    // Fetch shipped numbers from KV Worker
+    // Fetch shipped numbers from KV
     const shippedRes = await fetch("https://your-worker-url.workers.dev");
     shipped = await shippedRes.json();
 
-    // Populate input fields
-    provinces.forEach(p=>{
-      if(shipped[p]!==undefined){
-        document.getElementById(`ship_${p}`).value = shipped[p];
-      }
+    // Populate inputs and update province totals
+    Object.keys(shipped).forEach(d=>{
+      const input = document.getElementById(`ship_${d}`);
+      if(input) input.value = shipped[d];
     });
+    provinces.forEach(p=>updateProvinceTotal(p));
 
     updateSales();
-
-  } catch(err){
+  }catch(err){
     console.error(err);
   }
 }
 
-// Update summary and chart
-let barChart = null;
 function updateSales(){
-  // Read shipped input
+  // Read district shipped numbers
+  shipped = {};
   provinces.forEach(p=>{
-    shipped[p] = parseInt(document.getElementById(`ship_${p}`).value)||0;
+    districts[p].forEach(d=>{
+      shipped[d] = parseInt(document.getElementById(`ship_${d}`).value)||0;
+    });
   });
 
-  const totalShipped = Object.values(shipped).reduce((a,b)=>a+b,0);
-  const totalSold = Object.values(sold).reduce((a,b)=>a+b,0);
+  // Aggregate per province
+  const shippedPerProvince = {};
+  const soldPerProvince = {};
+  provinces.forEach(p=>{
+    shippedPerProvince[p] = districts[p].reduce((sum,d)=>sum+shipped[d],0);
+    soldPerProvince[p] = districts[p].reduce((sum,d)=>sum+sold[d],0);
+  });
+
+  const totalShipped = Object.values(shippedPerProvince).reduce((a,b)=>a+b,0);
+  const totalSold = Object.values(soldPerProvince).reduce((a,b)=>a+b,0);
   const percent = totalShipped ? ((totalSold/totalShipped)*100).toFixed(1) : 0;
 
   document.getElementById("summaryText").innerText = 
     `Total Shipped: ${totalShipped} | Total Sold: ${totalSold} | Sales %: ${percent}% | Remaining: ${totalShipped-totalSold}`;
 
-  // Save shipped numbers to KV via Worker
+  // Save district-level shipped numbers to KV
   fetch("https://your-worker-url.workers.dev", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify(shipped)
-  })
-  .then(res=>res.json())
-  .then(data=>console.log("Saved:", data))
-  .catch(err=>console.error("Failed to save:",err));
+  }).then(res=>res.json()).then(d=>console.log("Saved:",d)).catch(err=>console.error(err));
 
-  // Update chart
+  // Update horizontal bar chart
   const ctx = document.getElementById("barChart").getContext("2d");
   if(barChart) barChart.destroy();
-  barChart = new Chart(ctx, {
+  barChart = new Chart(ctx,{
     type:'bar',
     data:{
       labels: provinces,
       datasets:[
-        { label:'Shipped', data: provinces.map(p=>shipped[p]), backgroundColor:'#42a5f5' },
-        { label:'Sold', data: provinces.map(p=>sold[p]), backgroundColor:'#66bb6a' }
+        {label:'Shipped', data: provinces.map(p=>shippedPerProvince[p]), backgroundColor:'#42a5f5'},
+        {label:'Sold', data: provinces.map(p=>soldPerProvince[p]), backgroundColor:'#66bb6a'}
       ]
     },
     options:{
       indexAxis:'y',
       responsive:true,
-      plugins:{ legend:{ position:'top' } },
-      scales:{ x:{ beginAtZero:true } }
+      plugins:{legend:{position:'top'}},
+      scales:{x:{beginAtZero:true}}
     }
   });
 }
