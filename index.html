@@ -1,228 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sri Lanka Sales Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
-    header { text-align: center; margin-bottom: 20px; }
-    header h1 { margin: 0; font-size: 26px; color: #333; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sri Lanka Sales Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }
+  header { text-align: center; margin-bottom: 30px; }
+  header h1 { margin: 0; font-size: 28px; color: #2c3e50; }
 
-    .summary { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; justify-content: center; }
-    .card { background: white; flex: 1 1 180px; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); text-align: center; min-width: 120px; }
-    .card h3 { margin: 0; font-size: 18px; color: #555; }
-    .card p { font-size: 22px; margin: 10px 0 0; font-weight: bold; color: #222; }
+  .summary-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 450px; margin: 0 auto 30px auto; }
+  .summary-card h3 { font-size: 20px; margin-bottom: 15px; color: #34495e; }
+  .summary-card p { margin: 6px 0; font-size: 16px; font-weight: 500; color: #2c3e50; }
 
-    .shipped-inputs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
-    .shipped-inputs label { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; min-width: 140px; }
-    .shipped-inputs input { width: 60px; padding: 5px; text-align: right; border-radius:5px; border:1px solid #ccc; }
+  .charts { display: flex; flex-direction: column; gap: 30px; max-width: 900px; margin: 0 auto; }
+  .chart-container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .chart-container h3 { text-align: center; font-size: 18px; color: #34495e; margin-bottom: 15px; }
 
-    button { display: block; margin: 0 auto 20px auto; padding: 10px 20px; border: none; border-radius: 5px; background: #27ae60; color: white; cursor: pointer; }
+  canvas { height: 400px !important; }
 
-    .charts { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
-    .chart-container { background: white; flex: 1 1 300px; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 600px; }
-    .chart-container h3 { text-align: center; margin-top:0; font-size:18px; }
-    .chart-container canvas { height: 250px !important; } /* Fix chart height */
+  .district-container { margin-top: 10px; display: none; }
+  .district-container table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .district-container th, .district-container td { padding: 8px; text-align: center; border: 1px solid #ddd; }
+  .district-container th { background: #ecf0f1; }
+  .province-row { cursor: pointer; transition: background 0.3s; }
+  .province-row:hover { background: #dfe6e9; }
 
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-    table th, table td { padding: 8px; border: 1px solid #ddd; text-align: center; }
-    table th { background: #f0f0f0; font-size: 13px; }
+  input.ship-input { width: 70px; padding: 4px; border-radius:5px; border:1px solid #ccc; text-align:right; }
 
-    @media (max-width: 768px) {
-      .summary { flex-direction: column; }
-      .shipped-inputs { flex-direction: column; }
-      .chart-container { flex: 1 1 100%; }
-    }
-  </style>
+  button { display: block; margin: 15px auto; padding: 10px 20px; border: none; border-radius: 5px; background: #27ae60; color: white; cursor: pointer; font-size: 16px; }
+
+</style>
 </head>
 <body>
-  <header>
-    <h1>📊 Sri Lanka Sales Dashboard</h1>
-  </header>
+<header>
+  <h1>📊 Sri Lanka Sales Dashboard</h1>
+</header>
 
-  <!-- Shipped Inputs -->
-  <div class="shipped-inputs" id="shippedInputs"></div>
-  <button onclick="updateSales()">Update Sales</button>
+<div class="summary-card">
+  <h3>Sales Summary</h3>
+  <p id="totalShipped">Total Shipped: 0</p>
+  <p id="totalSold">Total Sold: 0</p>
+  <p id="salesPercent">Sales %: 0%</p>
+  <p id="remaining">Remaining: 0</p>
+</div>
 
-  <!-- Sales Summary -->
-  <div class="summary">
-    <div class="card"><h3>Total Shipped</h3><p id="totalShipped">0</p></div>
-    <div class="card"><h3>Total Scanned</h3><p id="totalScanned">0</p></div>
-    <div class="card"><h3>Sales %</h3><p id="salesPercent">0%</p></div>
-    <div class="card"><h3>Remaining</h3><p id="remaining">0</p></div>
+<div class="charts">
+  <div class="chart-container">
+    <h3>Sales by Province & District</h3>
+    <table id="provinceTable">
+      <thead>
+        <tr>
+          <th>Province</th>
+          <th>Shipped</th>
+          <th>Sold</th>
+          <th>Sales %</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <button onclick="saveShipped()">Save Shipped Numbers</button>
   </div>
-
-  <!-- Table + Sales Predictor -->
-  <div class="charts">
-    <div class="chart-container">
-      <h3>Sales by Province</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Province</th>
-            <th>Shipped</th>
-            <th>Scanned</th>
-            <th>Sales %</th>
-          </tr>
-        </thead>
-        <tbody id="salesTable"></tbody>
-      </table>
-    </div>
-    <div class="chart-container">
-      <h3>Sales Predictor</h3>
-      <label style="display:flex; justify-content:space-between; margin-bottom:10px;">
-        Province:
-        <select id="predictProvince">
-          <option value="">Select Province</option>
-        </select>
-      </label>
-      <label style="display:flex; justify-content:space-between; margin-bottom:10px;">
-        Shipped Quantity:
-        <input type="number" id="predictShipped" value="0" min="0">
-      </label>
-      <button onclick="predictSales()">Predict</button>
-      <p id="predictResult" style="margin-top:15px; font-weight:bold;"></p>
-    </div>
+  <div class="chart-container">
+    <h3>Sales Over Time</h3>
+    <canvas id="lineChart"></canvas>
   </div>
+</div>
 
-  <!-- Charts -->
-  <div class="charts">
-    <div class="chart-container">
-      <h3>Shipped vs Scanned (per Province)</h3>
-      <canvas id="barChart"></canvas>
-    </div>
-    <div class="chart-container">
-      <h3>Scans Over Time</h3>
-      <canvas id="lineChart"></canvas>
-    </div>
-  </div>
+<script>
+const provinces = ["Western","Central","Southern","Northern","Eastern","North Western","North Central","Uva","Sabaragamuwa"];
+const districts = {
+  "Colombo District":"Western","Gampaha District":"Western","Kalutara District":"Western",
+  "Kandy District":"Central","Matale District":"Central","Nuwara Eliya District":"Central",
+  "Galle District":"Southern","Matara District":"Southern","Hambantota District":"Southern",
+  "Jaffna District":"Northern","Kilinochchi District":"Northern","Mannar District":"Northern","Mullaitivu District":"Northern","Vavuniya District":"Northern",
+  "Batticaloa District":"Eastern","Ampara District":"Eastern","Trincomalee District":"Eastern",
+  "Kurunegala District":"North Western","Puttalam District":"North Western",
+  "Anuradhapura District":"North Central","Polonnaruwa District":"North Central",
+  "Badulla District":"Uva","Monaragala District":"Uva",
+  "Ratnapura District":"Sabaragamuwa","Kegalle District":"Sabaragamuwa"
+};
 
-  <script>
-    const provinces = ["Western","Central","Southern","Northern","Eastern","North Western","North Central","Uva","Sabaragamuwa"];
+let shipped = {};
+let sold = Object.fromEntries(provinces.map(p=>[p,0]));
+let soldDistrict = Object.fromEntries(Object.keys(districts).map(d=>[d,0]));
+let scanData = [];
 
-    const districtToProvince = {
-      "Colombo District":"Western","Gampaha District":"Western","Kalutara District":"Western",
-      "Kandy District":"Central","Matale District":"Central","Nuwara Eliya District":"Central",
-      "Galle District":"Southern","Matara District":"Southern","Hambantota District":"Southern",
-      "Jaffna District":"Northern","Kilinochchi District":"Northern","Mannar District":"Northern","Mullaitivu District":"Northern","Vavuniya District":"Northern",
-      "Batticaloa District":"Eastern","Ampara District":"Eastern","Trincomalee District":"Eastern",
-      "Kurunegala District":"North Western","Puttalam District":"North Western",
-      "Anuradhapura District":"North Central","Polonnaruwa District":"North Central",
-      "Badulla District":"Uva","Monaragala District":"Uva",
-      "Ratnapura District":"Sabaragamuwa","Kegalle District":"Sabaragamuwa"
-    };
+provinces.forEach(p => shipped[p] = 0);
 
-    let shipped = {};
-    let scanned = Object.fromEntries(provinces.map(p=>[p,0]));
-    let scanData = [];
+// Fetch shipped numbers from Cloudflare KV Worker
+async function fetchShippedFromCloud() {
+  try {
+    const res = await fetch("https://<your-worker-name>.<subdomain>.workers.dev");
+    const data = await res.json();
+    shipped = { ...shipped, ...data };
+  } catch(err){
+    console.error("Failed to fetch shipped numbers from cloud:", err);
+  }
+}
 
-    const shippedDiv = document.getElementById('shippedInputs');
-    const predictSelect = document.getElementById("predictProvince");
+// Fetch scanned/sold data from JSON endpoint
+async function fetchSalesData() {
+  try {
+    const res = await fetch("https://qr-tracker-worker.businesstroffice.workers.dev/locations");
+    scanData = await res.json();
+    
+    sold = Object.fromEntries(provinces.map(p=>[p,0]));
+    soldDistrict = Object.fromEntries(Object.keys(districts).map(d=>[d,0]));
 
-    provinces.forEach(p=>{
-      const label = document.createElement('label');
-      label.innerHTML = `${p}: <input type="number" min="0" value="0" id="ship_${p}">`;
-      shippedDiv.appendChild(label);
-
-      const option = document.createElement('option');
-      option.value = p;
-      option.innerText = p;
-      predictSelect.appendChild(option);
+    scanData.forEach(item=>{
+      const prov = districts[item.district];
+      if(prov) sold[prov]++;
+      if(soldDistrict[item.district] !== undefined) soldDistrict[item.district]++;
     });
 
-    async function fetchScans(){
-      try{
-        const res = await fetch("https://qr-tracker-worker.businesstroffice.workers.dev/locations");
-        scanData = await res.json();
-        scanData.forEach(item=>{
-          const prov = districtToProvince[item.district];
-          if(prov) scanned[prov]++;
-        });
-      }catch(err){
-        console.error("Failed to fetch scan data:", err);
-      }
-      updateSales();
-    }
+  } catch(err){
+    console.error("Failed to fetch sales data:", err);
+  }
+  updateDashboard();
+}
 
-    function updateSales(){
-      provinces.forEach(p=>{
-        shipped[p] = parseInt(document.getElementById(`ship_${p}`).value) || 0;
+// Update table, summary, and chart
+function updateDashboard() {
+  const totalShipped = Object.values(shipped).reduce((a,b)=>a+b,0);
+  const totalSold = Object.values(sold).reduce((a,b)=>a+b,0);
+  const percent = totalShipped ? ((totalSold/totalShipped)*100).toFixed(1) : 0;
+
+  document.getElementById("totalShipped").innerText = `Total Shipped: ${totalShipped}`;
+  document.getElementById("totalSold").innerText = `Total Sold: ${totalSold}`;
+  document.getElementById("salesPercent").innerText = `Sales %: ${percent}%`;
+  document.getElementById("remaining").innerText = `Remaining: ${totalShipped - totalSold}`;
+
+  const tbody = document.querySelector("#provinceTable tbody");
+  tbody.innerHTML = "";
+
+  provinces.forEach(prov=>{
+    const tr = document.createElement("tr");
+    tr.classList.add("province-row");
+    tr.innerHTML = `<td>${prov}</td>
+                    <td><input class="ship-input" type="number" min="0" value="${shipped[prov]}" data-prov="${prov}"></td>
+                    <td>${sold[prov]}</td>
+                    <td>${shipped[prov]?((sold[prov]/shipped[prov])*100).toFixed(1):0}%</td>`;
+    tbody.appendChild(tr);
+
+    const districtTr = document.createElement("tr");
+    const districtTd = document.createElement("td");
+    districtTd.colSpan = 4;
+    const div = document.createElement("div");
+    div.className = "district-container";
+    const table = document.createElement("table");
+    table.innerHTML = `<thead>
+      <tr><th>District</th><th>Shipped</th><th>Sold</th><th>Sales %</th></tr></thead><tbody></tbody>`;
+    div.appendChild(table);
+    districtTd.appendChild(div);
+    districtTr.appendChild(districtTd);
+    tbody.appendChild(districtTr);
+
+    const districtBody = table.querySelector("tbody");
+    Object.keys(districts).filter(d => districts[d] === prov).forEach(d=>{
+      const shippedVal = shipped[prov];
+      const soldVal = soldDistrict[d] || 0;
+      const percentD = shippedVal ? ((soldVal/shippedVal)*100).toFixed(1) : 0;
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${d}</td><td>${shippedVal}</td><td>${soldVal}</td><td>${percentD}%</td>`;
+      districtBody.appendChild(row);
+    });
+
+    tr.addEventListener("click", ()=>{
+      document.querySelectorAll(".district-container").forEach(dc=>{
+        if(dc !== div) dc.style.display = "none";
       });
+      div.style.display = div.style.display === "none" ? "block" : "none";
+    });
+  });
 
-      const totalShipped = Object.values(shipped).reduce((a,b)=>a+b,0);
-      const totalScanned = Object.values(scanned).reduce((a,b)=>a+b,0);
-      const percent = totalShipped ? ((totalScanned/totalShipped)*100).toFixed(1) : 0;
+  const timeCounts = {};
+  scanData.forEach(item=>{
+    const day = new Date(item.timestamp).toLocaleDateString();
+    timeCounts[day] = (timeCounts[day]||0)+1;
+  });
 
-      document.getElementById("totalShipped").innerText = totalShipped;
-      document.getElementById("totalScanned").innerText = totalScanned;
-      document.getElementById("salesPercent").innerText = percent+"%";
-      document.getElementById("remaining").innerText = totalShipped - totalScanned;
+  new Chart(document.getElementById("lineChart"), {
+    type: 'line',
+    data: {
+      labels: Object.keys(timeCounts),
+      datasets:[{
+        label:'Sold', data:Object.values(timeCounts),
+        borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,0.2)', fill:true, tension:0.3
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false }
+  });
+}
 
-      const tableBody = document.getElementById("salesTable");
-      tableBody.innerHTML = "";
-      provinces.forEach(p=>{
-        const row = `<tr>
-          <td>${p}</td>
-          <td>${shipped[p]}</td>
-          <td>${scanned[p]}</td>
-          <td>${shipped[p]?((scanned[p]/shipped[p])*100).toFixed(1):0}%</td>
-        </tr>`;
-        tableBody.innerHTML += row;
-      });
+// Save shipped numbers to Cloudflare KV Worker
+function saveShipped(){
+  document.querySelectorAll(".ship-input").forEach(input=>{
+    const prov = input.dataset.prov;
+    shipped[prov] = parseInt(input.value) || 0;
+  });
 
-      new Chart(document.getElementById("barChart"), {
-        type: 'bar',
-        data: {
-          labels: provinces,
-          datasets: [
-            { label: 'Shipped', data: provinces.map(p=>shipped[p]), backgroundColor: '#42a5f5' },
-            { label: 'Scanned', data: provinces.map(p=>scanned[p]), backgroundColor: '#66bb6a' }
-          ]
-        },
-        options: { responsive:true, maintainAspectRatio:false }
-      });
+  fetch("https://<your-worker-name>.<subdomain>.workers.dev", {
+    method:"POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify(shipped)
+  })
+  .then(res=>res.json())
+  .then(data=>{ alert("Shipped numbers saved!"); updateDashboard(); })
+  .catch(err=>{ alert("Failed to save shipped numbers."); console.error(err); });
+}
 
-      const timeCounts = {};
-      scanData.forEach(item=>{
-        const day = new Date(item.timestamp).toLocaleDateString();
-        timeCounts[day] = (timeCounts[day]||0)+1;
-      });
-      new Chart(document.getElementById("lineChart"), {
-        type: 'line',
-        data: {
-          labels: Object.keys(timeCounts),
-          datasets:[{
-            label:'Scans', data:Object.values(timeCounts),
-            borderColor:'#42a5f5', backgroundColor:'rgba(66,165,245,0.2)', fill:true, tension:0.3
-          }]
-        },
-        options: { responsive:true, maintainAspectRatio:false }
-      });
-    }
+// Initialize dashboard
+async function initDashboard() {
+  await fetchShippedFromCloud();
+  await fetchSalesData();
+}
 
-    function predictSales() {
-      const province = document.getElementById("predictProvince").value;
-      const shippedQty = parseInt(document.getElementById("predictShipped").value) || 0;
-
-      if(!province || shippedQty <= 0){
-        document.getElementById("predictResult").innerText = "Please select a province and enter a valid shipped quantity.";
-        return;
-      }
-
-      const currentShipped = shipped[province] || 0;
-      const currentScanned = scanned[province] || 0;
-      const currentPercent = currentShipped ? currentScanned / currentShipped : 0;
-
-      const predictedScans = Math.round(shippedQty * currentPercent);
-      const predictedPercent = ((predictedScans/shippedQty)*100).toFixed(1);
-
-      document.getElementById("predictResult").innerText =
-        `Predicted Scans: ${predictedScans} (${predictedPercent}%)`;
-    }
-
-    fetchScans();
-  </script>
+initDashboard();
+</script>
 </body>
 </html>
