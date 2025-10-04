@@ -6,23 +6,41 @@
 <title>Sri Lanka Sales Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
-header { text-align: center; margin-bottom: 20px; }
-header h1 { margin: 0; font-size: 26px; color: #333; }
+/* Reset & base */
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg,#fdfbfb,#ebedee); padding:20px; color:#333; }
 
-.card-small { display: inline-block; background:white; padding:15px 25px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; text-align:center; }
-.card-small p { margin:5px 0; font-size:16px; color:#555; }
+/* Header */
+header { text-align:center; margin-bottom:30px; }
+header h1 { font-size:2rem; color:#1e3c72; background:linear-gradient(to right,#2a5298,#1e3c72); -webkit-background-clip:text; color:transparent; font-weight:800; }
 
-button { padding:10px 20px; border:none; border-radius:5px; background:#27ae60; color:white; cursor:pointer; margin-bottom:20px; }
+/* Summary Card */
+.card-small { display:flex; justify-content:center; align-items:center; background:white; padding:15px 25px; border-radius:20px; box-shadow:0 8px 20px rgba(0,0,0,0.15); margin-bottom:30px; font-weight:600; font-size:16px; color:#1e3c72; }
 
-.chart-container { background:white; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; }
+/* Button */
+button { padding:12px 25px; border:none; border-radius:30px; background:linear-gradient(45deg,#36d1dc,#5b86e5); color:white; cursor:pointer; font-weight:600; margin-bottom:20px; box-shadow:0 5px 15px rgba(0,0,0,0.2); transition:0.3s; }
+button:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.25); }
 
-.province-container { margin-bottom:10px; }
-.province-header { cursor:pointer; padding:10px; background:#eee; border-radius:6px; margin-bottom:2px; display:flex; justify-content:space-between; align-items:center; }
-.province-total { font-weight:bold; padding:5px 10px; margin-bottom:5px; color:#333; }
-.districts { display:none; margin-left:15px; padding:5px; border-left:3px solid #ccc; }
-.districts label { display:flex; justify-content:space-between; margin-bottom:3px; }
-h3 { margin-top:0; }
+/* Province container */
+.province-container { margin-bottom:15px; background:white; border-radius:15px; box-shadow:0 6px 20px rgba(0,0,0,0.1); overflow:hidden; transition:0.3s; }
+.province-header { cursor:pointer; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:1.1rem; background:#f0f4f8; color:#1e3c72; transition:0.3s; }
+.province-header:hover { background:#dde6f0; }
+.province-total { padding:10px 20px; font-weight:600; color:#36d1dc; font-size:0.95rem; background:#f9faff; }
+.districts { display:none; padding:10px 20px; border-top:1px solid #eee; }
+
+.districts label { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:0.9rem; color:#555; }
+.districts input { width:70px; padding:5px 8px; border-radius:8px; border:1px solid #ccc; text-align:right; transition:0.2s; }
+.districts input:focus { border-color:#36d1dc; box-shadow:0 0 8px rgba(54,209,220,0.3); outline:none; }
+
+/* Chart Container */
+.chart-container { background:white; padding:20px; border-radius:20px; box-shadow:0 8px 25px rgba(0,0,0,0.1); margin-top:20px; }
+
+/* Responsive */
+@media(max-width:768px){ 
+  .districts input { width:50px; } 
+  .card-small { font-size:14px; padding:12px 18px; } 
+  header h1 { font-size:1.5rem; } 
+}
 </style>
 </head>
 <body>
@@ -36,14 +54,16 @@ h3 { margin-top:0; }
 </div>
 
 <div id="provinceInputs"></div>
-<button onclick="updateSales()">Save Shipped Numbers</button>
+<button onclick="updateSales()">💾 Save Shipped Numbers</button>
 
 <div class="chart-container">
-<h3>Sold vs Shipped per Province</h3>
+<h3 style="color:#1e3c72;">📈 Sold vs Shipped per Province</h3>
 <canvas id="barChart"></canvas>
 </div>
 
 <script>
+const workerURL = "https://shipped-dashboard-worker.businesstroffice.workers.dev/"; // ✅ Correct Worker URL
+
 const provinces = ["Western","Central","Southern","Northern","Eastern","North Western","North Central","Uva","Sabaragamuwa"];
 const districts = {
   "Western":["Colombo District","Gampaha District","Kalutara District"],
@@ -64,7 +84,7 @@ let barChart = null;
 
 const provinceDiv = document.getElementById('provinceInputs');
 
-// Generate province + district input fields with province total
+// Generate province + district input fields
 provinces.forEach(p=>{
   const container = document.createElement('div');
   container.className = 'province-container';
@@ -88,18 +108,16 @@ provinces.forEach(p=>{
     label.innerHTML = `${d}: <input type="number" min="0" value="0" id="ship_${d}">`;
     districtDiv.appendChild(label);
 
-    // Event to update province total dynamically
     const input = label.querySelector('input');
     input.addEventListener('input', ()=>{
       updateProvinceTotal(p);
-      updateSales();
+      updateSales(false); // avoid auto-saving on every input
     });
   });
 
   container.appendChild(districtDiv);
   provinceDiv.appendChild(container);
 
-  // Collapse/expand logic
   header.addEventListener('click', ()=>{
     document.querySelectorAll('.districts').forEach(dd=>dd.style.display='none');
     districtDiv.style.display = 'block';
@@ -116,7 +134,7 @@ function updateProvinceTotal(province){
 
 async function fetchData(){
   try{
-    // Fetch sold numbers
+    // Fetch sold numbers from QR scanner JSON
     const res = await fetch("https://qr-tracker-worker.businesstroffice.workers.dev/locations");
     scanData = await res.json();
     sold = {};
@@ -126,23 +144,20 @@ async function fetchData(){
     });
 
     // Fetch shipped numbers from KV
-    const shippedRes = await fetch("https://your-worker-url.workers.dev");
+    const shippedRes = await fetch(workerURL);
     shipped = await shippedRes.json();
 
-    // Populate inputs and update province totals
     Object.keys(shipped).forEach(d=>{
       const input = document.getElementById(`ship_${d}`);
       if(input) input.value = shipped[d];
     });
-    provinces.forEach(p=>updateProvinceTotal(p));
 
-    updateSales();
-  }catch(err){
-    console.error(err);
-  }
+    provinces.forEach(p=>updateProvinceTotal(p));
+    updateSales(false);
+  }catch(err){ console.error(err); }
 }
 
-function updateSales(){
+async function updateSales(save=true){
   // Read district shipped numbers
   shipped = {};
   provinces.forEach(p=>{
@@ -166,12 +181,21 @@ function updateSales(){
   document.getElementById("summaryText").innerText = 
     `Total Shipped: ${totalShipped} | Total Sold: ${totalSold} | Sales %: ${percent}% | Remaining: ${totalShipped-totalSold}`;
 
-  // Save district-level shipped numbers to KV
-  fetch("https://your-worker-url.workers.dev", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify(shipped)
-  }).then(res=>res.json()).then(d=>console.log("Saved:",d)).catch(err=>console.error(err));
+  // Save to KV if requested
+  if(save){
+    try{
+      const res = await fetch(workerURL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(shipped)
+      });
+      const data = await res.json();
+      if(!data.ok) alert("Error saving shipped numbers: "+data.error);
+      else console.log("Shipped numbers saved successfully");
+    }catch(err){
+      alert("Failed to save shipped numbers: "+err);
+    }
+  }
 
   // Update horizontal bar chart
   const ctx = document.getElementById("barChart").getContext("2d");
@@ -181,8 +205,8 @@ function updateSales(){
     data:{
       labels: provinces,
       datasets:[
-        {label:'Shipped', data: provinces.map(p=>shippedPerProvince[p]), backgroundColor:'#42a5f5'},
-        {label:'Sold', data: provinces.map(p=>soldPerProvince[p]), backgroundColor:'#66bb6a'}
+        {label:'Shipped', data: provinces.map(p=>shippedPerProvince[p]), backgroundColor:'#36d1dc'},
+        {label:'Sold', data: provinces.map(p=>soldPerProvince[p]), backgroundColor:'#5b86e5'}
       ]
     },
     options:{
@@ -194,6 +218,7 @@ function updateSales(){
   });
 }
 
+// Initial fetch
 fetchData();
 </script>
 </body>
