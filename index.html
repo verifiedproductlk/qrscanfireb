@@ -6,72 +6,42 @@
 <title>Sri Lanka Sales Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }
-  header { text-align: center; margin-bottom: 30px; }
-  header h1 { margin: 0; font-size: 28px; color: #2c3e50; }
-
-  .summary-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 450px; margin: 0 auto 30px auto; }
-  .summary-card h3 { font-size: 20px; margin-bottom: 15px; color: #34495e; }
-  .summary-card p { margin: 6px 0; font-size: 16px; font-weight: 500; color: #2c3e50; }
-
-  .charts { display: flex; flex-direction: column; gap: 30px; max-width: 900px; margin: 0 auto; }
-  .chart-container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-  .chart-container h3 { text-align: center; font-size: 18px; color: #34495e; margin-bottom: 15px; }
-
-  canvas { height: 400px !important; }
-
-  .district-container { margin-top: 10px; display: none; }
-  .district-container table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .district-container th, .district-container td { padding: 8px; text-align: center; border: 1px solid #ddd; }
-  .district-container th { background: #ecf0f1; }
-  .province-row { cursor: pointer; transition: background 0.3s; }
-  .province-row:hover { background: #dfe6e9; }
-
-  input.ship-input { width: 70px; padding: 4px; border-radius:5px; border:1px solid #ccc; text-align:right; }
-
-  button { display: block; margin: 15px auto; padding: 10px 20px; border: none; border-radius: 5px; background: #27ae60; color: white; cursor: pointer; font-size: 16px; }
-
+body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+header { text-align: center; margin-bottom: 20px; }
+header h1 { margin: 0; font-size: 26px; color: #333; }
+.card-small { display: inline-block; background:white; padding:15px 25px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; text-align:center; }
+.card-small p { margin:5px 0; font-size:16px; color:#555; }
+.shipped-inputs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
+.shipped-inputs label { flex:1; background:white; padding:10px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; }
+.shipped-inputs input { width:60px; padding:5px; border-radius:5px; border:1px solid #ccc; text-align:right; }
+button { padding:10px 20px; border:none; border-radius:5px; background:#27ae60; color:white; cursor:pointer; margin-bottom:20px; }
+.chart-container { background:white; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; }
+h3 { margin-top:0; }
 </style>
 </head>
 <body>
 <header>
-  <h1>📊 Sri Lanka Sales Dashboard</h1>
+<h1>📊 Sri Lanka Sales Dashboard</h1>
 </header>
 
-<div class="summary-card">
-  <h3>Sales Summary</h3>
-  <p id="totalShipped">Total Shipped: 0</p>
-  <p id="totalSold">Total Sold: 0</p>
-  <p id="salesPercent">Sales %: 0%</p>
-  <p id="remaining">Remaining: 0</p>
+<!-- Small summary card -->
+<div class="card-small">
+  <p id="summaryText">Total Shipped: 0 | Total Sold: 0 | Sales %: 0 | Remaining: 0</p>
 </div>
 
-<div class="charts">
-  <div class="chart-container">
-    <h3>Sales by Province & District</h3>
-    <table id="provinceTable">
-      <thead>
-        <tr>
-          <th>Province</th>
-          <th>Shipped</th>
-          <th>Sold</th>
-          <th>Sales %</th>
-        </tr>
-      </thead>
-      <tbody>
-      </tbody>
-    </table>
-    <button onclick="saveShipped()">Save Shipped Numbers</button>
-  </div>
-  <div class="chart-container">
-    <h3>Sales Over Time</h3>
-    <canvas id="lineChart"></canvas>
-  </div>
+<!-- Shipped Inputs -->
+<div class="shipped-inputs" id="shippedInputs"></div>
+<button onclick="updateSales()">Save Shipped Numbers</button>
+
+<!-- Horizontal Bar Chart -->
+<div class="chart-container">
+<h3>Sold vs Shipped per Province</h3>
+<canvas id="barChart"></canvas>
 </div>
 
 <script>
 const provinces = ["Western","Central","Southern","Northern","Eastern","North Western","North Central","Uva","Sabaragamuwa"];
-const districts = {
+const districtToProvince = {
   "Colombo District":"Western","Gampaha District":"Western","Kalutara District":"Western",
   "Kandy District":"Central","Matale District":"Central","Nuwara Eliya District":"Central",
   "Galle District":"Southern","Matara District":"Southern","Hambantota District":"Southern",
@@ -84,141 +54,94 @@ const districts = {
 };
 
 let shipped = {};
-let sold = Object.fromEntries(provinces.map(p=>[p,0]));
-let soldDistrict = Object.fromEntries(Object.keys(districts).map(d=>[d,0]));
+let sold = {};
 let scanData = [];
 
-provinces.forEach(p => shipped[p] = 0);
+// Generate shipped input fields
+const shippedDiv = document.getElementById('shippedInputs');
+provinces.forEach(p=>{
+  const label = document.createElement('label');
+  label.innerHTML = `${p}: <input type="number" min="0" value="0" id="ship_${p}">`;
+  shippedDiv.appendChild(label);
+});
 
-// Fetch shipped numbers from Cloudflare KV Worker
-async function fetchShippedFromCloud() {
+// Fetch sold data and saved shipped numbers
+async function fetchData(){
   try {
-    const res = await fetch("https://<your-worker-name>.<subdomain>.workers.dev");
-    const data = await res.json();
-    shipped = { ...shipped, ...data };
-  } catch(err){
-    console.error("Failed to fetch shipped numbers from cloud:", err);
-  }
-}
-
-// Fetch scanned/sold data from JSON endpoint
-async function fetchSalesData() {
-  try {
+    // Fetch scanned/sold data
     const res = await fetch("https://qr-tracker-worker.businesstroffice.workers.dev/locations");
     scanData = await res.json();
-    
     sold = Object.fromEntries(provinces.map(p=>[p,0]));
-    soldDistrict = Object.fromEntries(Object.keys(districts).map(d=>[d,0]));
-
     scanData.forEach(item=>{
-      const prov = districts[item.district];
+      const prov = districtToProvince[item.district];
       if(prov) sold[prov]++;
-      if(soldDistrict[item.district] !== undefined) soldDistrict[item.district]++;
     });
 
+    // Fetch shipped numbers from KV Worker
+    const shippedRes = await fetch("https://your-worker-url.workers.dev");
+    shipped = await shippedRes.json();
+
+    // Populate input fields
+    provinces.forEach(p=>{
+      if(shipped[p]!==undefined){
+        document.getElementById(`ship_${p}`).value = shipped[p];
+      }
+    });
+
+    updateSales();
+
   } catch(err){
-    console.error("Failed to fetch sales data:", err);
+    console.error(err);
   }
-  updateDashboard();
 }
 
-// Update table, summary, and chart
-function updateDashboard() {
+// Update summary and chart
+let barChart = null;
+function updateSales(){
+  // Read shipped input
+  provinces.forEach(p=>{
+    shipped[p] = parseInt(document.getElementById(`ship_${p}`).value)||0;
+  });
+
   const totalShipped = Object.values(shipped).reduce((a,b)=>a+b,0);
   const totalSold = Object.values(sold).reduce((a,b)=>a+b,0);
   const percent = totalShipped ? ((totalSold/totalShipped)*100).toFixed(1) : 0;
 
-  document.getElementById("totalShipped").innerText = `Total Shipped: ${totalShipped}`;
-  document.getElementById("totalSold").innerText = `Total Sold: ${totalSold}`;
-  document.getElementById("salesPercent").innerText = `Sales %: ${percent}%`;
-  document.getElementById("remaining").innerText = `Remaining: ${totalShipped - totalSold}`;
+  document.getElementById("summaryText").innerText = 
+    `Total Shipped: ${totalShipped} | Total Sold: ${totalSold} | Sales %: ${percent}% | Remaining: ${totalShipped-totalSold}`;
 
-  const tbody = document.querySelector("#provinceTable tbody");
-  tbody.innerHTML = "";
-
-  provinces.forEach(prov=>{
-    const tr = document.createElement("tr");
-    tr.classList.add("province-row");
-    tr.innerHTML = `<td>${prov}</td>
-                    <td><input class="ship-input" type="number" min="0" value="${shipped[prov]}" data-prov="${prov}"></td>
-                    <td>${sold[prov]}</td>
-                    <td>${shipped[prov]?((sold[prov]/shipped[prov])*100).toFixed(1):0}%</td>`;
-    tbody.appendChild(tr);
-
-    const districtTr = document.createElement("tr");
-    const districtTd = document.createElement("td");
-    districtTd.colSpan = 4;
-    const div = document.createElement("div");
-    div.className = "district-container";
-    const table = document.createElement("table");
-    table.innerHTML = `<thead>
-      <tr><th>District</th><th>Shipped</th><th>Sold</th><th>Sales %</th></tr></thead><tbody></tbody>`;
-    div.appendChild(table);
-    districtTd.appendChild(div);
-    districtTr.appendChild(districtTd);
-    tbody.appendChild(districtTr);
-
-    const districtBody = table.querySelector("tbody");
-    Object.keys(districts).filter(d => districts[d] === prov).forEach(d=>{
-      const shippedVal = shipped[prov];
-      const soldVal = soldDistrict[d] || 0;
-      const percentD = shippedVal ? ((soldVal/shippedVal)*100).toFixed(1) : 0;
-      const row = document.createElement("tr");
-      row.innerHTML = `<td>${d}</td><td>${shippedVal}</td><td>${soldVal}</td><td>${percentD}%</td>`;
-      districtBody.appendChild(row);
-    });
-
-    tr.addEventListener("click", ()=>{
-      document.querySelectorAll(".district-container").forEach(dc=>{
-        if(dc !== div) dc.style.display = "none";
-      });
-      div.style.display = div.style.display === "none" ? "block" : "none";
-    });
-  });
-
-  const timeCounts = {};
-  scanData.forEach(item=>{
-    const day = new Date(item.timestamp).toLocaleDateString();
-    timeCounts[day] = (timeCounts[day]||0)+1;
-  });
-
-  new Chart(document.getElementById("lineChart"), {
-    type: 'line',
-    data: {
-      labels: Object.keys(timeCounts),
-      datasets:[{
-        label:'Sold', data:Object.values(timeCounts),
-        borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,0.2)', fill:true, tension:0.3
-      }]
-    },
-    options: { responsive:true, maintainAspectRatio:false }
-  });
-}
-
-// Save shipped numbers to Cloudflare KV Worker
-function saveShipped(){
-  document.querySelectorAll(".ship-input").forEach(input=>{
-    const prov = input.dataset.prov;
-    shipped[prov] = parseInt(input.value) || 0;
-  });
-
-  fetch("https://<your-worker-name>.<subdomain>.workers.dev", {
+  // Save shipped numbers to KV via Worker
+  fetch("https://your-worker-url.workers.dev", {
     method:"POST",
-    headers: { "Content-Type":"application/json" },
+    headers:{"Content-Type":"application/json"},
     body: JSON.stringify(shipped)
   })
   .then(res=>res.json())
-  .then(data=>{ alert("Shipped numbers saved!"); updateDashboard(); })
-  .catch(err=>{ alert("Failed to save shipped numbers."); console.error(err); });
+  .then(data=>console.log("Saved:", data))
+  .catch(err=>console.error("Failed to save:",err));
+
+  // Update chart
+  const ctx = document.getElementById("barChart").getContext("2d");
+  if(barChart) barChart.destroy();
+  barChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: provinces,
+      datasets:[
+        { label:'Shipped', data: provinces.map(p=>shipped[p]), backgroundColor:'#42a5f5' },
+        { label:'Sold', data: provinces.map(p=>sold[p]), backgroundColor:'#66bb6a' }
+      ]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,
+      plugins:{ legend:{ position:'top' } },
+      scales:{ x:{ beginAtZero:true } }
+    }
+  });
 }
 
-// Initialize dashboard
-async function initDashboard() {
-  await fetchShippedFromCloud();
-  await fetchSalesData();
-}
-
-initDashboard();
+fetchData();
 </script>
 </body>
 </html>
