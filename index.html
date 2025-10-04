@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Scan Sales Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin:0; background-color:#f5f7fa; display:flex; height:100vh; }
+    .sidebar { width:350px; background-color:#2c3e50; color:white; padding:20px; box-sizing:border-box; display:flex; flex-direction:column; overflow-y:auto; }
+    .sidebar h3 { margin-top:0; font-weight:normal; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px; }
+    .sidebar .summary-card { background:#34495e; padding:15px; border-radius:8px; margin-bottom:15px; }
+    .sidebar ul { list-style:none; padding:0; margin:0; }
+    .sidebar li { padding:5px 0; }
+    .main { flex:1; padding:30px; overflow-y:auto; }
+    h2 { margin-top:0; color:#34495e; }
+    .filter { margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+    select, input { padding:5px 10px; border-radius:5px; border:1px solid #ccc; }
+    table { border-collapse: collapse; width:100%; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:30px; }
+    th, td { padding:12px 10px; border-bottom:1px solid #eee; text-align:left; }
+    th { background-color:#2980b9; color:white; }
+    canvas { background:white; padding:15px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px; }
+    .charts { display:flex; flex-wrap:wrap; gap:20px; }
+    .chart-container { flex:1 1 300px; }
+    .shipped-inputs { background:white; padding:15px; border-radius:8px; margin-bottom:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .shipped-inputs label { display:flex; justify-content:space-between; margin-bottom:8px; }
+    .shipped-inputs input { width:60px; text-align:right; }
+    .kpi { display:flex; flex-wrap:wrap; gap:20px; margin-bottom:20px; }
+    .kpi-card { flex:1 1 150px; background:#3498db; color:white; padding:15px; border-radius:8px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .login-container { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+    .login-container input { margin:5px; padding:5px; width:200px; }
+    .login-container button { margin:5px; padding:5px; width:100px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <!-- Login / Signup -->
+  <div id="loginDiv" class="login-container">
+    <h2>Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button id="loginBtn">Login</button>
+    <h3>Or Sign Up</h3>
+    <input type="email" id="signupEmail" placeholder="Email">
+    <input type="password" id="signupPassword" placeholder="Password">
+    <button id="signupBtn">Sign Up</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" style="display:none;">
+    <div class="sidebar">
+      <h3>Summary</h3>
+      <div class="summary-card">
+        <p>Total Scans:</p>
+        <h1 id="totalScans">0</h1>
+      </div>
+      <h3>District Summary</h3>
+      <ul id="districtSummary"></ul>
+    </div>
+    <div class="main">
+      <button id="logoutBtn" style="margin-bottom:20px; padding:8px 15px; border:none; border-radius:5px; background:#c0392b; color:white;">Logout</button>
+      <h2>Distributor Shipments</h2>
+      <div class="shipped-inputs" id="shippedInputs"></div>
+      <button onclick="updateSales()" style="margin-bottom:20px; padding:8px 15px; border:none; border-radius:5px; background:#27ae60; color:white;">Update Sales</button>
+      <div class="kpi">
+        <div class="kpi-card"><h3>Total Shipped</h3><p id="totalShipped">0</p></div>
+        <div class="kpi-card"><h3>Total Scanned</h3><p id="totalScannedSales">0</p></div>
+        <div class="kpi-card"><h3>Overall Sales %</h3><p id="overallSales">0%</p></div>
+      </div>
+      <div class="charts">
+        <div class="chart-container"><canvas id="salesChart"></canvas></div>
+        <div class="chart-container"><canvas id="districtChart"></canvas></div>
+      </div>
+      <h2>Scanned Data Records</h2>
+      <label class="filter">Filter by District:
+        <select id="districtFilter"><option value="">All</option></select>
+      </label>
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Track Key</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>District</th>
+            <th>Country</th>
+          </tr>
+        </thead>
+        <tbody id="recordsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // ===== Firebase Config =====
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getFirestore();
+
+    // UI elements
+    const loginDiv = document.getElementById('loginDiv');
+    const dashboardDiv = document.getElementById('dashboard');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    const tableBody = document.getElementById('recordsTable');
+    const districtFilter = document.getElementById('districtFilter');
+    const totalScans = document.getElementById('totalScans');
+    const districtSummary = document.getElementById('districtSummary');
+
+    const shippedInputsDiv = document.getElementById('shippedInputs');
+    const totalShippedEl = document.getElementById('totalShipped');
+    const totalScannedSalesEl = document.getElementById('totalScannedSales');
+    const overallSalesEl = document.getElementById('overallSales');
+
+    let scans = [];
+    let shippedProducts = {};
+    let salesChart, districtChart;
+    const provinces = ["Central","Eastern","Northern","North Western","North Central","Sabaragamuwa","Southern","Uva","Western","Unknown"];
+
+    // Generate shipped input fields
+    function generateShippedInputs() {
+      shippedInputsDiv.innerHTML = "";
+      provinces.forEach(p=>{
+        const label=document.createElement('label');
+        label.innerHTML=`${p}: <input type="number" min="0" value="0" id="ship_${p}">`;
+        shippedInputsDiv.appendChild(label);
+      });
+    }
+    generateShippedInputs();
+
+    // ===== Authentication =====
+    document.getElementById('signupBtn').onclick = ()=>{
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+      createUserWithEmailAndPassword(auth,email,password).catch(err=>alert(err.message));
+    };
+
+    document.getElementById('loginBtn').onclick = ()=>{
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      signInWithEmailAndPassword(auth,email,password).catch(err=>alert(err.message));
+    };
+
+    logoutBtn.onclick = ()=>signOut(auth);
+
+    // Listen to auth state
+    onAuthStateChanged(auth, async user=>{
+      if(user){
+        loginDiv.style.display="none";
+        dashboardDiv.style.display="flex";
+
+        const uid = user.uid;
+
+        // Fetch scans
+        const scansSnap = await getDocs(collection(db,"customers",uid,"scans"));
+        scans = scansSnap.docs.map(d=>d.data());
+
+        // Fetch shipped products
+        const shippedDoc = await getDoc(doc(db,"customers",uid,"shipped","provinces"));
+        shippedProducts = shippedDoc.exists() ? shippedDoc.data() : {};
+
+        provinces.forEach(p=>{
+          if(shippedProducts[p]!==undefined) document.getElementById(`ship_${p}`).value=shippedProducts[p];
+        });
+
+        updateSummary();
+        renderTable();
+        renderCharts();
+      } else {
+        loginDiv.style.display="flex";
+        dashboardDiv.style.display="none";
+      }
+    });
+
+    // ===== Dashboard Functions =====
+    districtFilter.addEventListener('change', ()=>{ renderTable(districtFilter.value); renderCharts(districtFilter.value); });
+
+    function updateSummary(){
+      totalScans.textContent = scans.length;
+      const counts={};
+      scans.forEach(s=>{ const d=s.district||"Unknown"; counts[d]=(counts[d]||0)+1; });
+      districtSummary.innerHTML="";
+      Object.entries(counts).forEach(([d,c])=>{ const li=document.createElement('li'); li.textContent=`${d}: ${c}`; districtSummary.appendChild(li); });
+      districtFilter.innerHTML=`<option value="">All</option>`;
+      Object.keys(counts).forEach(d=>{ const opt=document.createElement('option'); opt.value=d; opt.textContent=d; districtFilter.appendChild(opt); });
+    }
+
+    function renderTable(filter=""){
+      tableBody.innerHTML="";
+      const filtered = scans.filter(s=>!filter || s.district===filter);
+      filtered.forEach(r=>{
+        const row=document.createElement('tr');
+        row.innerHTML=`<td>${r.timestamp||""}</td><td>${r.track_key||""}</td><td>${r.latitude||""}</td><td>${r.longitude||""}</td><td>${r.district||""}</td><td>${r.country||""}</td>`;
+        tableBody.appendChild(row);
+      });
+    }
+
+    function updateSales(){
+      provinces.forEach(p=>{ shippedProducts[p]=parseInt(document.getElementById(`ship_${p}`).value)||0; });
+      const totalShipped = Object.values(shippedProducts).reduce((a,b)=>a+b,0);
+      const scannedCounts={};
+      provinces.forEach(p=>scannedCounts[p]=0);
+      scans.forEach(s=>{ const d = s.district || "Unknown"; if(scannedCounts[d]!==undefined) scannedCounts[d]++; });
+      const totalScanned = Object.values(scannedCounts).reduce((a,b)=>a+b,0);
+      const overallPercent = totalShipped ? ((totalScanned/totalShipped)*100).toFixed(1) : 0;
+      totalShippedEl.textContent=totalShipped;
+      totalScannedSalesEl.textContent=totalScanned;
+      overallSalesEl.textContent=overallPercent+"%";
+      renderSalesChart(scannedCounts);
+
+      // Save shipped to Firestore
+      const uid = auth.currentUser.uid;
+      setDoc(doc(db,"customers",uid,"shipped","provinces"),shippedProducts);
+    }
+
+    function renderSalesChart(scannedCounts){
+      const salesPercentages = provinces.map(p=>{ const shipped=shippedProducts[p]||0; const scanned=scannedCounts[p]||0; return shipped?((scanned/shipped)*100).toFixed(1):0; });
+      if(salesChart) salesChart.destroy();
+      const ctx=document.getElementById('salesChart').getContext('2d');
+      salesChart=new Chart(ctx,{
+        type:'bar',
+        data:{ labels:provinces, datasets:[{ label:'Sales %', data:salesPercentages, backgroundColor:'#27ae60' }] },
+        options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,max:100,title:{display:true,text:'Sales %'}}} }
+      });
+    }
+
+    function renderCharts(filter=""){
+      const filtered = scans.filter(s=>!filter || s.district===filter);
+      const districtCounts={};
+      filtered.forEach(s=>{ const d=s.district||"Unknown"; districtCounts[d]=(districtCounts[d]||0)+1; });
+      const labels=Object.keys(districtCounts);
+      const data=Object.values(districtCounts);
+      if(districtChart) districtChart.destroy();
+      const ctx2=document.getElementById('districtChart').getContext('2d');
+      districtChart=new Chart(ctx2,{ type:'bar', data:{labels,datasets:[{label:'Scans by District',data,backgroundColor:'#3498db'}]}, options:{responsive:true,plugins:{legend:{display:false}}} });
+    }
+
+  </script>
+</body>
+</html>
