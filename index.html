@@ -281,39 +281,21 @@ function computeAndRender(){
   provinceBar=new Chart(ctxP,{ type:'bar', data:{labels:labelsP,datasets:[{label:'Shipped',data:shippedDataP,backgroundColor:'#36d1dc'},{label:'Sold',data:soldDataP,backgroundColor:'#5b6cff'}]}, options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{beginAtZero:true}}, indexAxis:'y'} });
 
   // District chart
-  // District chart
-const allDistricts = Object.values(districtsByProvince).flat();
-const shippedDataD = allDistricts.map(d => { const el = document.getElementById(idFor(d)); return el ? Number(el.value || 0) : 0; });
-const soldDataD = allDistricts.map(d => soldDistrict[d] || 0);
-const ctxD = document.getElementById('districtBar').getContext('2d');
-
-if(districtBar) districtBar.destroy();
-
-districtBar = new Chart(ctxD, {
-  type: 'bar',
-  data: {
-    labels: allDistricts,
-    datasets: [
-      { label: 'Shipped', data: shippedDataD, backgroundColor: '#36d1dc' },
-      { label: 'Sold', data: soldDataD, backgroundColor: '#5b6cff' }
-    ]
-  },
-  options: {
-    responsive: true,
-    plugins: { legend: { position: 'top' } },
-    scales: {
-      x: { ticks: { font: { size: 11 } }, beginAtZero: true },
-      y: { beginAtZero: true }
-    },
-    indexAxis: 'y',
-    maintainAspectRatio: false
-  }
-});
-
-// Ensure container is scrollable if too tall
-document.getElementById('districtBar').parentElement.style.maxHeight = '600px';
-document.getElementById('districtBar').parentElement.style.overflowY = 'auto';
-
+  const allDistricts=Object.values(districtsByProvince).flat();
+  const shippedDataD=allDistricts.map(d=>{ const el=document.getElementById(idFor(d)); return el?Number(el.value||0):0; });
+  const soldDataD=allDistricts.map(d=>soldDistrict[d]||0);
+  const ctxD=document.getElementById('districtBar').getContext('2d');
+  if(districtBar) districtBar.destroy();
+  districtBar=new Chart(ctxD,{
+    type:'bar',
+    data:{ labels:allDistricts, datasets:[ {label:'Shipped',data:shippedDataD,backgroundColor:'#36d1dc'}, {label:'Sold',data:soldDataD,backgroundColor:'#5b6cff'} ]},
+    options:{
+      responsive:true,
+      plugins:{ legend:{ position:'top' } },
+      scales:{ x:{ ticks:{ font:{ size:11 } }, beginAtZero:true }, y:{ beginAtZero:true } },
+      indexAxis:'y'
+    }
+  });
 
   // Monthly pie
   const ctxM=document.getElementById('monthlyChart');
