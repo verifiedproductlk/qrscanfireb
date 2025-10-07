@@ -1,71 +1,133 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Sri Lanka Sales Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <style>
-/* Reset & base */
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg,#fdfbfb,#ebedee); padding:20px; color:#333; }
+  * { box-sizing: border-box; }
+  html,body { height:100%; margin:0; font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif; background: linear-gradient(180deg,#f6fbff 0%, #eef6fb 100%); color:#0b2944; padding:20px; }
 
-/* Header */
-header { text-align:center; margin-bottom:30px; }
-header h1 { font-size:2rem; color:#1e3c72; background:linear-gradient(to right,#2a5298,#1e3c72); -webkit-background-clip:text; color:transparent; font-weight:800; }
+  .wrap { max-width:1300px; margin:0 auto; display:grid; gap:16px; grid-template-columns:1fr; }
 
-/* Summary Card */
-.card-small { display:flex; justify-content:center; align-items:center; background:white; padding:15px 25px; border-radius:20px; box-shadow:0 8px 20px rgba(0,0,0,0.15); margin-bottom:30px; font-weight:600; font-size:16px; color:#1e3c72; }
+  header { text-align:center; margin-bottom:10px; }
+  header h1 { font-size:22px; font-weight:800; background:linear-gradient(90deg,#0ea5a4,#5b6cff); -webkit-background-clip:text; color:transparent; margin:0; }
+  header p { margin:6px 0 0; color:#274155; opacity:0.9; font-size:13px }
 
-/* Button */
-button { padding:12px 25px; border:none; border-radius:30px; background:linear-gradient(45deg,#36d1dc,#5b86e5); color:white; cursor:pointer; font-weight:600; margin-bottom:20px; box-shadow:0 5px 15px rgba(0,0,0,0.2); transition:0.3s; }
-button:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.25); }
+  .tiles { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin-top:8px; }
+  .tile { background:linear-gradient(180deg,#fff,#f8fbff); border-radius:12px; padding:14px; box-shadow:0 8px 22px rgba(8,20,35,0.06); display:flex; flex-direction:column; justify-content:center; }
+  .tile .label { font-size:12px; color:#5a7388; margin-bottom:6px; }
+  .tile .value { font-weight:800; font-size:18px; color:#072033; }
 
-/* Province container */
-.province-container { margin-bottom:15px; background:white; border-radius:15px; box-shadow:0 6px 20px rgba(0,0,0,0.1); overflow:hidden; transition:0.3s; }
-.province-header { cursor:pointer; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:1.1rem; background:#f0f4f8; color:#1e3c72; transition:0.3s; }
-.province-header:hover { background:#dde6f0; }
-.province-total { padding:10px 20px; font-weight:600; color:#36d1dc; font-size:0.95rem; background:#f9faff; }
-.districts { display:none; padding:10px 20px; border-top:1px solid #eee; }
+  .main-grid { display:grid; grid-template-columns: 1fr 520px; gap:16px; align-items:start; margin-top:8px; }
+  @media(max-width:1000px) { .main-grid{ grid-template-columns:1fr } .tiles{ grid-template-columns:repeat(2,1fr) } }
+  @media(max-width:560px) { .tiles{ grid-template-columns:1fr } }
 
-.districts label { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:0.9rem; color:#555; }
-.districts input { width:70px; padding:5px 8px; border-radius:8px; border:1px solid #ccc; text-align:right; transition:0.2s; }
-.districts input:focus { border-color:#36d1dc; box-shadow:0 0 8px rgba(54,209,220,0.3); outline:none; }
+  .left { }
+  .collapse-btn { display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; font-weight:700; color:#08344a; background:#f3f8fb; padding:10px 14px; border-radius:10px; }
+  .actions { display:flex; gap:12px; align-items:center; margin:12px 0 6px; }
+  .save-btn { padding:10px 18px; border:none; border-radius:10px; background:linear-gradient(90deg,#36d1dc,#5b6cff); color:white; cursor:pointer; font-weight:700; box-shadow:0 8px 20px rgba(11,60,86,0.12); }
+  .status-box { min-width:260px; }
+  .status { padding:8px 12px; border-radius:10px; font-weight:700; font-size:13px; display:inline-block; }
+  .status.ok { background:#ecfffa; color:#075985; border:1px solid #a7f3d0; }
+  .status.err { background:#fff1f2; color:#7f1d1d; border:1px solid #fecaca; }
 
-/* Chart Container */
-.chart-container { background:white; padding:20px; border-radius:20px; box-shadow:0 8px 25px rgba(0,0,0,0.1); margin-top:20px; }
+  .provinces { display:grid; gap:12px; }
 
-/* Responsive */
-@media(max-width:768px){ 
-  .districts input { width:50px; } 
-  .card-small { font-size:14px; padding:12px 18px; } 
-  header h1 { font-size:1.5rem; } 
-}
+  .province-card { background:linear-gradient(180deg,#fff,#fbfdff); border-radius:12px; overflow:hidden; box-shadow:0 8px 22px rgba(8,20,35,0.06); }
+  .province-header { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; cursor:pointer; gap:8px; background:#f3f8fb; }
+  .province-title { font-weight:800; color:#08344a; }
+  .province-meta { color:#4f6b81; font-size:13px; }
+  .province-total { padding:8px 14px; font-weight:700; color:#0ea5a4; background:#fbfffe; }
+
+  .districts { display:none; padding:10px 14px 14px 14px; border-top:1px solid #eef3f6; }
+  .district-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px dashed #eef3f6; }
+  .district-row:last-child { border-bottom:0; }
+  .district-name { font-size:13px; color:#274155; flex:1; display:flex; align-items:center; justify-content:space-between; }
+  .district-input { display:flex; gap:8px; align-items:center; min-width:180px; justify-content:flex-end; }
+  .district-input small { color:#6b8296; font-size:12px; }
+  .district-input input { width:88px; padding:6px 8px; border-radius:8px; border:1px solid #d6e6ef; text-align:right; font-weight:700; color:#08344a; background:white; }
+  .district-input input:focus { outline:none; box-shadow:0 6px 18px rgba(13,110,126,0.08); border-color:#36d1dc; }
+  .district-note { width:140px; padding:4px 6px; font-size:12px; border-radius:6px; border:1px solid #d6e6ef; }
+
+  .right { display:flex; flex-direction:column; gap:12px; }
+  .chart-card { background:linear-gradient(180deg,#fff,#fbfdff); border-radius:12px; padding:14px; box-shadow:0 8px 22px rgba(8,20,35,0.06); }
+  .chart-card h3 { margin:0 0 8px 0; color:#08344a; font-size:15px; }
+
+  #provinceBar { height:360px; display:block; width:100%; }
+  #districtBar { display:block; width:100%; max-height:600px; } 
+
+  #monthlyChart, #topDistrictChart { width:100%; height:100%; display:block; }
+  .muted { color:#4f6b81; font-size:13px; }
+
+  @media(max-width:700px){ #provinceBar { height:300px; } #districtBar { max-height:500px; } }
 </style>
 </head>
 <body>
-
+<div class="wrap">
 <header>
-<h1>📊 Sri Lanka Sales Dashboard</h1>
+  <h1>Sales Dashboard</h1>
+  <p class="muted">Realtime sold counts from QR scans • Enter & save shipped numbers per district</p>
 </header>
 
-<div class="card-small">
-  <p id="summaryText">Total Shipped: 0 | Total Sold: 0 | Sales %: 0 | Remaining: 0</p>
+<div class="tiles">
+  <div class="tile"><div class="label">Total Shipped</div><div class="value" id="valShipped">0</div></div>
+  <div class="tile"><div class="label">Total Sold</div><div class="value" id="valSold">0</div></div>
+  <div class="tile"><div class="label">Remaining</div><div class="value" id="valRemaining">0</div></div>
+  <div class="tile"><div class="label">Sales %</div><div class="value" id="valPercent">0%</div></div>
 </div>
 
-<div id="provinceInputs"></div>
-<button onclick="updateSales()">💾 Save Shipped Numbers</button>
+<div class="main-grid">
+<div class="left">
+  <div class="collapse-btn" id="toggleShippedSection">📦 Province & Districts (click to expand/collapse)</div>
+  <div class="provinces" id="provincesList"></div>
 
-<div class="chart-container">
-<h3 style="color:#1e3c72;">📈 Sold vs Shipped per Province</h3>
-<canvas id="barChart"></canvas>
+  <div class="actions">
+    <button class="save-btn" id="saveBtn">💾 Save</button>
+    <div class="status-box" id="statusBox"></div>
+  </div>
+</div>
+
+<div class="right">
+  <div class="chart-card">
+    <h3>Monthly Sales (Pie Chart)</h3>
+    <div style="height:180px; width:180px; margin:0 auto;">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Top Performing District</h3>
+    <div style="height:180px; width:180px; margin:0 auto;">
+      <canvas id="topDistrictChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Shipped vs Sold (9 provinces)</h3>
+    <canvas id="provinceBar"></canvas>
+  </div>
+
+  <div class="chart-card">
+    <h3>District Distribution (25 districts)</h3>
+    <canvas id="districtBar"></canvas>
+  </div>
+</div>
+</div>
 </div>
 
 <script>
-const workerURL = "https://shipped-dashboard-worker.businesstroffice.workers.dev/"; // ✅ Correct Worker URL
+const WORKER_URL = "https://shipped-dashboard-worker.businesstroffice.workers.dev";
+const QR_JSON = "https://qr-tracker-worker.businesstroffice.workers.dev/locations";
+const AUTOSAVE_DELAY = 2000;
+const RESYNC_INTERVAL = 60000;
 
 const provinces = ["Western","Central","Southern","Northern","Eastern","North Western","North Central","Uva","Sabaragamuwa"];
-const districts = {
+const districtsByProvince = {
   "Western":["Colombo District","Gampaha District","Kalutara District"],
   "Central":["Kandy District","Matale District","Nuwara Eliya District"],
   "Southern":["Galle District","Matara District","Hambantota District"],
@@ -77,149 +139,243 @@ const districts = {
   "Sabaragamuwa":["Ratnapura District","Kegalle District"]
 };
 
-let shipped = {};
-let sold = {};
-let scanData = [];
-let barChart = null;
+let shippedDistrict = {};
+let soldDistrict = {};
+let monthlyCounts = {};
+let monthlyChart=null, topDistrictChart=null, provinceBar=null, districtBar=null;
 
-const provinceDiv = document.getElementById('provinceInputs');
+const provincesList = document.getElementById('provincesList');
+const saveBtn = document.getElementById('saveBtn');
+const statusBox = document.getElementById('statusBox');
+const valShipped = document.getElementById('valShipped');
+const valSold = document.getElementById('valSold');
+const valRemaining = document.getElementById('valRemaining');
+const valPercent = document.getElementById('valPercent');
+const toggleBtn = document.getElementById('toggleShippedSection');
 
-// Generate province + district input fields
-provinces.forEach(p=>{
-  const container = document.createElement('div');
-  container.className = 'province-container';
+function esc(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+function idFor(d){ return 'in_' + d.replaceAll(/[^a-zA-Z0-9]/g,'_'); }
+function statusOK(msg){ statusBox.innerHTML = `<div class="status ok">✅ ${esc(msg)}</div>`; setTimeout(()=>{ if(statusBox.innerHTML.includes(msg)) statusBox.innerHTML=''; }, 3500); }
+function statusErr(msg){ statusBox.innerHTML = `<div class="status err">❌ ${esc(msg)}</div>`; console.error(msg); }
 
-  const header = document.createElement('div');
-  header.className = 'province-header';
-  header.innerHTML = `<span>${p}</span> <span>▼</span>`;
-  container.appendChild(header);
+toggleBtn.addEventListener('click',()=>{ provincesList.style.display = provincesList.style.display==='none'?'grid':'none'; });
 
-  const totalDiv = document.createElement('div');
-  totalDiv.className = 'province-total';
-  totalDiv.id = `total_${p}`;
-  totalDiv.innerText = 'Total Shipped: 0';
-  container.appendChild(totalDiv);
+function buildUI(){
+  provincesList.innerHTML = '';
+  provinces.forEach(prov=>{
+    const card = document.createElement('div'); 
+    card.className = 'province-card';
+    
+    const header = document.createElement('div'); 
+    header.className = 'province-header';
+    header.innerHTML = `<div class="province-title">${esc(prov)}</div><div class="province-meta" id="meta_${prov}">...</div>`;
+    card.appendChild(header);
 
-  const districtDiv = document.createElement('div');
-  districtDiv.className = 'districts';
+    const totalDiv = document.createElement('div');
+    totalDiv.className='province-total'; 
+    totalDiv.id=`total_${prov}`; 
+    totalDiv.innerText='Total Shipped: 0';
+    card.appendChild(totalDiv);
 
-  districts[p].forEach(d=>{
-    const label = document.createElement('label');
-    label.innerHTML = `${d}: <input type="number" min="0" value="0" id="ship_${d}">`;
-    districtDiv.appendChild(label);
+    const districtWrap = document.createElement('div'); 
+    districtWrap.className='districts';
+    
+    districtsByProvince[prov].forEach(d=>{
+      const row=document.createElement('div'); 
+      row.className='district-row';
+      row.innerHTML=`
+        <div class="district-name">${esc(d)} <input class="district-note" id="note_${idFor(d)}" placeholder="Add note"/></div>
+        <div class="district-input"><small>Shipped</small><input id="${idFor(d)}" type="number" min="0" value="0" /></div>
+      `;
+      districtWrap.appendChild(row);
+    });
+    card.appendChild(districtWrap);
+    provincesList.appendChild(card);
 
-    const input = label.querySelector('input');
-    input.addEventListener('input', ()=>{
-      updateProvinceTotal(p);
-      updateSales(false); // avoid auto-saving on every input
+    header.addEventListener('click',()=>{
+      districtWrap.style.display = districtWrap.style.display==='grid'?'none':'grid';
     });
   });
+}
 
-  container.appendChild(districtDiv);
-  provinceDiv.appendChild(container);
+async function loadSoldData(){
+  soldDistrict={}; monthlyCounts={};
+  Object.values(districtsByProvince).flat().forEach(d=>soldDistrict[d]=0);
+  try{
+    const res = await fetch(QR_JSON);
+    if(!res.ok) throw new Error(`QR JSON fetch failed ${res.status}`);
+    const arr = await res.json();
+    arr.forEach(item=>{
+      const d=item.district; const ts=item.timestamp;
+      if(d && (d in soldDistrict)) soldDistrict[d]+=1;
+      if(ts){
+        const date=new Date(ts);
+        if(!isNaN(date.getTime())){
+          const key=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+          monthlyCounts[key]=(monthlyCounts[key]||0)+1;
+        }
+      }
+    });
+    statusOK('Loaded sold data from scans');
+  }catch(err){ console.error(err); statusErr('Failed to load sold data'); }
+}
 
-  header.addEventListener('click', ()=>{
-    document.querySelectorAll('.districts').forEach(dd=>dd.style.display='none');
-    districtDiv.style.display = 'block';
+async function loadShippedFromWorker(){
+  Object.values(districtsByProvince).flat().forEach(d=>shippedDistrict[d]=0);
+  try{
+    const res = await fetch(WORKER_URL, {method:'GET'});
+    if(!res.ok) throw new Error(`Worker GET failed ${res.status}`);
+    const data = await res.json();
+    if(data?.districts && typeof data.districts === 'object'){
+      Object.keys(data.districts).forEach(d=>{
+        const el = document.getElementById(idFor(d));
+        const noteEl = document.getElementById(`note_${idFor(d)}`);
+        if(el) el.value = data.districts[d].shipped || 0;  // <-- read shipped
+        if(noteEl) noteEl.value = data.districts[d].note || '';
+      });
+    }
+    statusOK('Loaded shipped numbers from cloud');
+  } catch(err){
+    console.error(err);
+    statusErr('Failed to load shipped data');
+  }
+}
+
+function populateUI(){
+  Object.values(districtsByProvince).flat().forEach(d=>{
+    const el=document.getElementById(idFor(d));
+    if(el && !el._listening){ el.addEventListener('input',()=>{ scheduleAutosave(); computeAndRender(); }); el._listening=true; }
   });
+  computeAndRender();
+}
+
+function computeAndRender(){
+  const shippedPerProvince={}; const soldPerProvince={};
+  provinces.forEach(p=>{
+    shippedPerProvince[p]=0; soldPerProvince[p]=0;
+    districtsByProvince[p].forEach(d=>{
+      const el=document.getElementById(idFor(d));
+      const shippedVal=el?Number(el.value||0):0;
+      shippedPerProvince[p]+=shippedVal;
+      soldPerProvince[p]+=(soldDistrict[d]||0);
+    });
+    const totalDiv=document.getElementById(`total_${p}`);
+    if(totalDiv) totalDiv.innerText=`Total Shipped: ${shippedPerProvince[p]}`;
+    const meta=document.getElementById(`meta_${p}`);
+    if(meta) meta.innerText=`${soldPerProvince[p]} sold`;
+  });
+
+  const totalShipped=Object.values(shippedPerProvince).reduce((a,b)=>a+b,0);
+  const totalSold=Object.values(soldPerProvince).reduce((a,b)=>a+b,0);
+  const remaining=totalShipped-totalSold;
+  const percent=totalShipped?Math.round((totalSold/totalShipped)*1000)/10:0;
+
+  valShipped.innerText=totalShipped; valSold.innerText=totalSold; valRemaining.innerText=remaining; valPercent.innerText=`${percent}%`;
+
+  // Province chart
+  const ctxP=document.getElementById('provinceBar').getContext('2d');
+  const labelsP=provinces;
+  const shippedDataP=labelsP.map(p=>shippedPerProvince[p]);
+  const soldDataP=labelsP.map(p=>soldPerProvince[p]);
+  if(provinceBar) provinceBar.destroy();
+  provinceBar=new Chart(ctxP,{ type:'bar', data:{labels:labelsP,datasets:[{label:'Shipped',data:shippedDataP,backgroundColor:'#36d1dc'},{label:'Sold',data:soldDataP,backgroundColor:'#5b6cff'}]}, options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{beginAtZero:true}}, indexAxis:'y'} });
+
+  // District chart
+  // District chart
+const allDistricts = Object.values(districtsByProvince).flat();
+const shippedDataD = allDistricts.map(d => { const el = document.getElementById(idFor(d)); return el ? Number(el.value || 0) : 0; });
+const soldDataD = allDistricts.map(d => soldDistrict[d] || 0);
+const ctxD = document.getElementById('districtBar').getContext('2d');
+
+if(districtBar) districtBar.destroy();
+
+districtBar = new Chart(ctxD, {
+  type: 'bar',
+  data: {
+    labels: allDistricts,
+    datasets: [
+      { label: 'Shipped', data: shippedDataD, backgroundColor: '#36d1dc' },
+      { label: 'Sold', data: soldDataD, backgroundColor: '#5b6cff' }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'top' } },
+    scales: {
+      x: { ticks: { font: { size: 11 } }, beginAtZero: true },
+      y: { beginAtZero: true }
+    },
+    indexAxis: 'y',
+    maintainAspectRatio: false
+  }
 });
 
-function updateProvinceTotal(province){
-  const total = districts[province].reduce((sum,d)=>{
-    const val = parseInt(document.getElementById(`ship_${d}`).value)||0;
-    return sum+val;
-  },0);
-  document.getElementById(`total_${province}`).innerText = `Total Shipped: ${total}`;
+// Ensure container is scrollable if too tall
+document.getElementById('districtBar').parentElement.style.maxHeight = '600px';
+document.getElementById('districtBar').parentElement.style.overflowY = 'auto';
+
+
+  // Monthly pie
+  const ctxM=document.getElementById('monthlyChart');
+  ctxM.width=180; ctxM.height=180; 
+  const ctxMP=ctxM.getContext('2d');
+  const remainingVal=Math.max(0,totalShipped-totalSold);
+  if(monthlyChart) monthlyChart.destroy();
+  monthlyChart=new Chart(ctxMP,{ type:'pie', data:{labels:['Sold','Remaining'],datasets:[{data:[totalSold,remainingVal],backgroundColor:['#5b6cff','#e5e5e5']}]}, options:{responsive:true, plugins:{legend:{position:'bottom'}}} });
+
+  // Top district pie
+  const ctxT=document.getElementById('topDistrictChart');
+  ctxT.width=180; ctxT.height=180; 
+  const ctxTP=ctxT.getContext('2d');
+  const districtSales=allDistricts.map(d=>({name:d,sold:soldDistrict[d]||0}));
+  const topD=districtSales.reduce((a,b)=>b.sold>a.sold?b:a,{name:'',sold:0});
+  if(topDistrictChart) topDistrictChart.destroy();
+  topDistrictChart=new Chart(ctxTP,{ type:'pie', data:{labels:[topD.name,'Others'], datasets:[{data:[topD.sold,totalSold-topD.sold], backgroundColor:['#36d1dc','#e5e5e5']}]}, options:{responsive:true, plugins:{legend:{position:'bottom'}}} });
 }
 
-async function fetchData(){
-  try{
-    // Fetch sold numbers from QR scanner JSON
-    const res = await fetch("https://qr-tracker-worker.businesstroffice.workers.dev/locations");
-    scanData = await res.json();
-    sold = {};
-    provinces.forEach(p=>{ districts[p].forEach(d=>sold[d]=0); });
-    scanData.forEach(item=>{
-      if(sold[item.district]!==undefined) sold[item.district]++;
-    });
-
-    // Fetch shipped numbers from KV
-    const shippedRes = await fetch(workerURL);
-    shipped = await shippedRes.json();
-
-    Object.keys(shipped).forEach(d=>{
-      const input = document.getElementById(`ship_${d}`);
-      if(input) input.value = shipped[d];
-    });
-
-    provinces.forEach(p=>updateProvinceTotal(p));
-    updateSales(false);
-  }catch(err){ console.error(err); }
+let autosaveTimeout=null;
+function scheduleAutosave(){
+  clearTimeout(autosaveTimeout);
+  autosaveTimeout=setTimeout(saveShipped, AUTOSAVE_DELAY);
 }
 
-async function updateSales(save=true){
-  // Read district shipped numbers
-  shipped = {};
-  provinces.forEach(p=>{
-    districts[p].forEach(d=>{
-      shipped[d] = parseInt(document.getElementById(`ship_${d}`).value)||0;
+async function saveShipped(){
+  const districtsPayload = {};
+  Object.values(districtsByProvince).flat().forEach(d=>{
+    const el = document.getElementById(idFor(d));
+    const noteEl = document.getElementById(`note_${idFor(d)}`);
+    districtsPayload[d] = {
+      shipped: el ? Number(el.value || 0) : 0,
+      note: noteEl ? noteEl.value : ''
+    };
+  });
+
+  const payload = { districts: districtsPayload };
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-  });
-
-  // Aggregate per province
-  const shippedPerProvince = {};
-  const soldPerProvince = {};
-  provinces.forEach(p=>{
-    shippedPerProvince[p] = districts[p].reduce((sum,d)=>sum+shipped[d],0);
-    soldPerProvince[p] = districts[p].reduce((sum,d)=>sum+sold[d],0);
-  });
-
-  const totalShipped = Object.values(shippedPerProvince).reduce((a,b)=>a+b,0);
-  const totalSold = Object.values(soldPerProvince).reduce((a,b)=>a+b,0);
-  const percent = totalShipped ? ((totalSold/totalShipped)*100).toFixed(1) : 0;
-
-  document.getElementById("summaryText").innerText = 
-    `Total Shipped: ${totalShipped} | Total Sold: ${totalSold} | Sales %: ${percent}% | Remaining: ${totalShipped-totalSold}`;
-
-  // Save to KV if requested
-  if(save){
-    try{
-      const res = await fetch(workerURL, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(shipped)
-      });
-      const data = await res.json();
-      if(!data.ok) alert("Error saving shipped numbers: "+data.error);
-      else console.log("Shipped numbers saved successfully");
-    }catch(err){
-      alert("Failed to save shipped numbers: "+err);
-    }
+    if(!res.ok) throw new Error(`Worker POST failed ${res.status}`);
+    statusOK('Saved shipped numbers and notes');
+  } catch(err) {
+    console.error(err);
+    statusErr('Failed to save shipped data');
   }
-
-  // Update horizontal bar chart
-  const ctx = document.getElementById("barChart").getContext("2d");
-  if(barChart) barChart.destroy();
-  barChart = new Chart(ctx,{
-    type:'bar',
-    data:{
-      labels: provinces,
-      datasets:[
-        {label:'Shipped', data: provinces.map(p=>shippedPerProvince[p]), backgroundColor:'#36d1dc'},
-        {label:'Sold', data: provinces.map(p=>soldPerProvince[p]), backgroundColor:'#5b86e5'}
-      ]
-    },
-    options:{
-      indexAxis:'y',
-      responsive:true,
-      plugins:{legend:{position:'top'}},
-      scales:{x:{beginAtZero:true}}
-    }
-  });
 }
 
-// Initial fetch
-fetchData();
+async function init(){
+  buildUI();
+  await loadSoldData();
+  await loadShippedFromWorker();
+  populateUI();
+  setInterval(async()=>{ await loadSoldData(); computeAndRender(); }, RESYNC_INTERVAL);
+}
+
+init();
+saveBtn.addEventListener('click',saveShipped);
 </script>
 </body>
 </html>
