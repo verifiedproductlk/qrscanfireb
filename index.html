@@ -138,14 +138,20 @@
   .main-grid { grid-template-columns:1fr; gap:12px; }
   .right { order: -1; } /* Charts move above left column */
 }
-/* ===== District Chart Scroll Fix ===== */
-#districtChartWrapper {
-  max-height: 500px;  /* limits visible height */
-  overflow-y: auto;   /* enables vertical scroll if needed */
-  overflow-x: hidden;
-  padding-right: 10px; /* prevent scrollbar overlap */
+/* Make districts scrollable horizontally on mobile */
+@media(max-width:700px){
+  .districts {
+    display: flex !important;      /* side-by-side layout */
+    flex-wrap: nowrap;              /* prevent wrapping */
+    overflow-x: auto;               /* horizontal scroll */
+    padding-bottom: 6px;
+    gap: 12px;
+  }
+  .district-row {
+    flex: 0 0 auto;                 /* prevent shrinking */
+    min-width: 200px;               /* adjust width as needed */
+  }
 }
-
 
 #districtBar {
   width: 100%;
