@@ -27,24 +27,25 @@
   @media(max-width:1000px) { .main-grid{ grid-template-columns:1fr } .tiles{ grid-template-columns:repeat(2,1fr) } }
   @media(max-width:560px) { .tiles{ grid-template-columns:1fr } }
   
-  /* Only affect the two pie charts */
+  /* Pie charts side by side even on mobile */
 .top-pie-charts {
   display: flex;
   gap: 12px;
   justify-content: center;
-  margin-bottom: 10px;
-  flex-wrap: wrap; /* for smaller screens */
+  flex-wrap: nowrap; /* prevent wrapping on mobile */
+  overflow-x: auto;  /* allow horizontal scroll if needed */
 }
 
 .top-pie-charts .chart-card {
-  flex: 1 1 200px; /* minimum width */
-  max-width: 300px; /* optional max width */
-  aspect-ratio: 1 / 1; /* make it square */
+  flex: 0 0 48%; /* each takes roughly half the width */
+  max-width: 300px;
+  aspect-ratio: 1 / 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
 }
+
 .top-pie-charts .chart-card canvas {
   width: 100% !important;
   height: 100% !important;
