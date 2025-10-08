@@ -152,14 +152,46 @@
   height: 900px; /* large enough to show all 25 districts */
   display: block;
 }
-/* Mobile: make left panel scrollable */
+ 
+/* Mobile adjustments for district rows and inputs */
 @media(max-width:700px){
+  /* Make district rows stack vertically */
+  .district-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  /* District name and input stack */
+  .district-name {
+    justify-content: flex-start;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .district-input {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* Input and note fields fill width */
+  .district-input input,
+  .district-note {
+    width: 100%;
+    max-width: 200px; /* optional: limit max width */
+    box-sizing: border-box;
+  }
+
+  /* Make left panel scrollable */
   .left {
-    max-height: calc(100vh - 140px); /* viewport height minus header & padding */
+    max-height: calc(100vh - 140px);
     overflow-y: auto;
-    padding-right: 8px; /* avoid scrollbar overlap */
+    padding-right: 8px;
   }
 }
+
 
 </style>
 </head>
