@@ -49,6 +49,7 @@
 .top-pie-charts .chart-card canvas {
   width: 100% !important;
   height: 100% !important;
+  object-fit: contain;
 }
 
   .left { }
@@ -414,7 +415,6 @@ districtBar = new Chart(ctxD, {
 
   // Monthly pie
   const ctxM=document.getElementById('monthlyChart');
-  ctxM.width=180; ctxM.height=180; 
   const ctxMP=ctxM.getContext('2d');
   const remainingVal=Math.max(0,totalShipped-totalSold);
   if(monthlyChart) monthlyChart.destroy();
