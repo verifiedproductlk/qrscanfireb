@@ -191,7 +191,31 @@
     padding-right: 8px;
   }
 }
+@media(max-width:700px){
+  /* 2x2 grid for tiles */
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 
+  /* Force tiles to be squares */
+  .tile {
+    position: relative;      /* needed for inner sizing */
+    padding: 0;              /* remove default padding */
+    overflow: hidden;
+  }
+
+  /* Inner content container to keep padding inside square */
+  .tile > .inner {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 14px;           /* restore padding */
+  }
+}
 
 </style>
 </head>
@@ -215,7 +239,12 @@
 </div>
 
 <div class="tiles">
-  <div class="tile"><div class="label">Total Shipped</div><div class="value" id="valShipped">0</div></div>
+  <div class="tile">
+  <div class="inner">
+    <div class="label">Total Shipped</div>
+    <div class="value" id="valShipped">0</div>
+  </div>
+</div>
   <div class="tile"><div class="label">Total Sold</div><div class="value" id="valSold">0</div></div>
   <div class="tile"><div class="label">Remaining</div><div class="value" id="valRemaining">0</div></div>
   <div class="tile"><div class="label">Sales %</div><div class="value" id="valPercent">0%</div></div>
