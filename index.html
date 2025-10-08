@@ -26,6 +26,29 @@
   .main-grid { display:grid; grid-template-columns: 1fr 520px; gap:16px; align-items:start; margin-top:8px; }
   @media(max-width:1000px) { .main-grid{ grid-template-columns:1fr } .tiles{ grid-template-columns:repeat(2,1fr) } }
   @media(max-width:560px) { .tiles{ grid-template-columns:1fr } }
+  
+  /* Only affect the two pie charts */
+.top-pie-charts {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap; /* for smaller screens */
+}
+
+.top-pie-charts .chart-card {
+  flex: 1 1 200px; /* minimum width */
+  max-width: 300px; /* optional max width */
+  aspect-ratio: 1 / 1; /* make it square */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.top-pie-charts .chart-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
 
   .left { }
   .collapse-btn { display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:8px; font-weight:700; color:#08344a; background:#f3f8fb; padding:10px 14px; border-radius:10px; }
@@ -41,7 +64,7 @@
   .province-card { background:linear-gradient(180deg,#fff,#fbfdff); border-radius:12px; overflow:hidden; box-shadow:0 8px 22px rgba(8,20,35,0.06); }
   .province-header { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; cursor:pointer; gap:8px; background:#f3f8fb; }
   .province-title { font-weight:800; color:#08344a; }
-  .province-meta { color:#4f6b81; font-size:13px; }
+  .province-meta { color:#4f6b84; font-size:13px; }
   .province-total { padding:8px 14px; font-weight:700; color:#0ea5a4; background:#fbfffe; }
 
   .districts { display:none; padding:10px 14px 14px 14px; border-top:1px solid #eef3f6; }
@@ -59,20 +82,95 @@
   .chart-card h3 { margin:0 0 8px 0; color:#08344a; font-size:15px; }
 
   #provinceBar { height:360px; display:block; width:100%; }
-  #districtBar { display:block; width:100%; max-height:600px; } 
+ #districtBar { width: 100%;height: 900px; /* adjust this value as needed */
+  display: block; 
 
   #monthlyChart, #topDistrictChart { width:100%; height:100%; display:block; }
   .muted { color:#4f6b81; font-size:13px; }
 
-  @media(max-width:700px){ #provinceBar { height:300px; } #districtBar { max-height:500px; } }
+  @media(max-width:700px){ #provinceBar { height:300px; } #districtBar { max-height:900px; } }
+  /* Add this at the end of your existing <style> block */
+
+/* Province cards and district rows responsive tweaks */
+@media(max-width:700px){
+  .district-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .district-name {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .district-input {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .district-input input, .district-note {
+    width: 100%;
+    max-width: 200px;
+  }
+  .province-header {
+    flex-wrap: wrap;
+  }
+@media(max-width:700px){
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .right {
+    order: -1; /* Move charts above the left column */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .right {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+@media(max-width:700px){
+  .main-grid { grid-template-columns:1fr; gap:12px; }
+  .right { order: -1; } /* Charts move above left column */
+}
+/* ===== District Chart Scroll Fix ===== */
+#districtChartWrapper {
+  max-height: 500px;  /* limits visible height */
+  overflow-y: auto;   /* enables vertical scroll if needed */
+  overflow-x: hidden;
+  padding-right: 10px; /* prevent scrollbar overlap */
+}
+
+
+#districtBar {
+  width: 100%;
+  height: 900px; /* large enough to show all 25 districts */
+  display: block;
+}
+
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
   <h1>Sales Dashboard</h1>
-  <p class="muted">Realtime sold counts from QR scans • Enter & save shipped numbers per district</p>
+  <p class="muted">Realtime sales counts from QR scans • Enter & save shipped numbers per district</p>
 </header>
+
+<div class="top-pie-charts">
+  <div class="chart-card" id="monthlyPieCard">
+    <h3>Monthly Sales</h3>
+    <canvas id="monthlyChart"></canvas>
+  </div>
+
+  <div class="chart-card" id="topDistrictPieCard">
+    <h3>Top Performing District</h3>
+    <canvas id="topDistrictChart"></canvas>
+  </div>
+</div>
 
 <div class="tiles">
   <div class="tile"><div class="label">Total Shipped</div><div class="value" id="valShipped">0</div></div>
@@ -82,47 +180,34 @@
 </div>
 
 <div class="main-grid">
-<div class="left">
-  <div class="collapse-btn" id="toggleShippedSection">📦 Province & Districts (click to expand/collapse)</div>
-  <div class="provinces" id="provincesList"></div>
+  <div class="left">
+    <div class="collapse-btn" id="toggleShippedSection">📦 Province & Districts (click to expand/collapse)</div>
+    <div class="provinces" id="provincesList"></div>
 
-  <div class="actions">
-    <button class="save-btn" id="saveBtn">💾 Save</button>
-    <div class="status-box" id="statusBox"></div>
-  </div>
-</div>
-
-<div class="right">
-  <div class="chart-card">
-    <h3>Monthly Sales (Pie Chart)</h3>
-    <div style="height:180px; width:180px; margin:0 auto;">
-      <canvas id="monthlyChart"></canvas>
+    <div class="actions">
+      <button class="save-btn" id="saveBtn">💾 Save</button>
+      <div class="status-box" id="statusBox"></div>
     </div>
   </div>
 
-  <div class="chart-card">
-    <h3>Top Performing District</h3>
-    <div style="height:180px; width:180px; margin:0 auto;">
-      <canvas id="topDistrictChart"></canvas>
+  <div class="right">
+    <div class="chart-card">
+      <h3>Shipped vs Sold (9 provinces)</h3>
+      <canvas id="provinceBar"></canvas>
     </div>
-  </div>
 
-  <div class="chart-card">
-    <h3>Shipped vs Sold (9 provinces)</h3>
-    <canvas id="provinceBar"></canvas>
-  </div>
-
-  <div class="chart-card">
-    <h3>District Distribution (25 districts)</h3>
+    <div class="chart-card" id="districtDistributionCard">
+  <h3>District Distribution</h3>
+  <div id="districtChartWrapper">
     <canvas id="districtBar"></canvas>
   </div>
 </div>
 </div>
-</div>
+
 
 <script>
 const WORKER_URL = "https://shipped-dashboard-worker.businesstroffice.workers.dev";
-const QR_JSON = "https://qr-tracker-worker.businesstroffice.workers.dev/locations";
+const QR_JSON = "https://sqlreadwork.businesstroffice.workers.dev/";
 const AUTOSAVE_DELAY = 2000;
 const RESYNC_INTERVAL = 60000;
 
@@ -281,21 +366,50 @@ function computeAndRender(){
   provinceBar=new Chart(ctxP,{ type:'bar', data:{labels:labelsP,datasets:[{label:'Shipped',data:shippedDataP,backgroundColor:'#36d1dc'},{label:'Sold',data:soldDataP,backgroundColor:'#5b6cff'}]}, options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{beginAtZero:true}}, indexAxis:'y'} });
 
   // District chart
-  const allDistricts=Object.values(districtsByProvince).flat();
-  const shippedDataD=allDistricts.map(d=>{ const el=document.getElementById(idFor(d)); return el?Number(el.value||0):0; });
-  const soldDataD=allDistricts.map(d=>soldDistrict[d]||0);
-  const ctxD=document.getElementById('districtBar').getContext('2d');
-  if(districtBar) districtBar.destroy();
-  districtBar=new Chart(ctxD,{
-    type:'bar',
-    data:{ labels:allDistricts, datasets:[ {label:'Shipped',data:shippedDataD,backgroundColor:'#36d1dc'}, {label:'Sold',data:soldDataD,backgroundColor:'#5b6cff'} ]},
-    options:{
-      responsive:true,
-      plugins:{ legend:{ position:'top' } },
-      scales:{ x:{ ticks:{ font:{ size:11 } }, beginAtZero:true }, y:{ beginAtZero:true } },
-      indexAxis:'y'
+  const allDistricts = Object.values(districtsByProvince).flat();
+  const shippedDataD = allDistricts.map(d => {
+  const el = document.getElementById(idFor(d));
+  return el ? Number(el.value || 0) : 0;
+});
+  const soldDataD = allDistricts.map(d => soldDistrict[d] || 0);
+
+  const ctxD = document.getElementById('districtBar').getContext('2d');
+
+// Safely destroy existing chart if present
+if (districtBar) {
+  try { districtBar.destroy(); } catch(e) { console.warn(e); }
+}
+
+districtBar = new Chart(ctxD, {
+  type: 'bar',
+  data: {
+    labels: allDistricts,
+    datasets: [
+      { label: 'Shipped', data: shippedDataD, backgroundColor: '#36d1dc' },
+      { label: 'Sold', data: soldDataD, backgroundColor: '#5b6cff' }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false, // uses container height
+    plugins: {
+      legend: { position: 'top' }
+    },
+    indexAxis: 'y',
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: { font: { size: 11 } }
+      },
+      y: {
+        ticks: {
+          autoSkip: false,  // ✅ show all 25 districts
+          font: { size: 11 }
+        }
+      }
     }
-  });
+  }
+});
 
   // Monthly pie
   const ctxM=document.getElementById('monthlyChart');
