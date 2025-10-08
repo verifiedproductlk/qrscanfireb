@@ -83,7 +83,7 @@
   .chart-card { background:linear-gradient(180deg,#fff,#fbfdff); border-radius:12px; padding:14px; box-shadow:0 8px 22px rgba(8,20,35,0.06); }
   .chart-card h3 { margin:0 0 8px 0; color:#08344a; font-size:15px; }
 
-  #provinceBar { height:500px; display:block; width:100%; }
+  #provinceBar { display: block; width: 100%; }
  #districtBar { width: 100%;height: 900px; /* adjust this value as needed */
   display: block; 
 
@@ -435,6 +435,12 @@ function computeAndRender(){
   valShipped.innerText=totalShipped; valSold.innerText=totalSold; valRemaining.innerText=remaining; valPercent.innerText=`${percent}%`;
 
   // Province chart
+  const ctxP = document.getElementById('provinceBar');
+const numProvinces = provinces.length;
+
+// Set dynamic height: e.g., 60px per province
+ctxP.height = numProvinces * 60;  
+ 
   const ctxP=document.getElementById('provinceBar').getContext('2d');
   const labelsP=provinces;
   const shippedDataP=labelsP.map(p=>shippedPerProvince[p]);
